@@ -10,5 +10,10 @@
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^22.5.5"
+  },
+  "dependencies": {
+    "@types/debug": "^4.1.12",
+    "debug": "^4.3.7",
+    "xinput-ffi": "^4.0.0"
   }
 }
