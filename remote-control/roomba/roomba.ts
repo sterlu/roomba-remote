@@ -1,57 +1,56 @@
 // Robot.ts
-import dgram from "node:dgram";
+import Debug from 'debug';
 import {
-    CleanCommand, DriveCommand,
+    CleanCommand,
+    DriveCommand,
     FullModeCommand,
-    MaxCommand, MotorsCommand, PowerCommand, QuerySensorCommand, QuerySensorsCommand,
+    MaxCommand,
+    MotorsCommand,
+    PowerCommand,
+    QuerySensorCommand,
+    QuerySensorsCommand,
     ResetCommand,
-    SafeModeCommand, SeekDockCommand, SetDayTimeCommand,
+    SafeModeCommand,
+    SeekDockCommand,
+    SetDayTimeCommand,
     SpotCommand,
     StartCommand,
-    StopCommand, StreamSensorData
+    StopCommand
 } from './commands';
-import { Command } from './command';
+import {Command} from './command';
 import {Mode} from "./mode";
 import {ModeChangeCallback} from "./mode_change_callback";
-import {UDPReceiver} from "../udp_receiver";
+import {Message, MessageType, UdpSocket} from "./udp_socket";
+import {SensorData} from "./sensor_data";
+
+const debug = Debug('roomba-remote:roomba');
 
 export class Roomba {
     private readonly name: string;
-    private readonly ipAddress: string;
-    private readonly port: number;
-    private client: dgram.Socket;
+    private socket: UdpSocket;
     private opMode: Mode;
     private readonly modeChangeCallback?: ModeChangeCallback;
-    private udpReceiver: UDPReceiver;
+    private pollQuerySensorsInterval?: NodeJS.Timeout;
 
     constructor(name: string, ipAddress: string, port: number, modeChangeCallback?: ModeChangeCallback) {
         this.name = name;
-        this.ipAddress = ipAddress;
-        this.port = port;
-        this.client = dgram.createSocket('udp4');
+        this.socket = new UdpSocket(ipAddress, port, this.onMessage.bind(this));
         this.opMode = Mode.Off;
         this.modeChangeCallback = modeChangeCallback;
-        const processData = (data: Buffer) => {
-            console.log('Received data:', data.toString());
-            // Process the data here
-        };
-        this.udpReceiver = new UDPReceiver(port, )
     }
-
-
 
     /**
      * Get the name of the roomba.
      */
     public getName(): string {
-        console.log(`I am ${this.name}, a roomba.`);
+        debug(`I am ${this.name}, a roomba.`);
         return this.name;
     }
 
     // Clean up the UDP client
     public close(): void {
-        this.client.close();
-        console.log(`${this.name} roomba client closed.`);
+        this.socket.close();
+        debug(`${this.name} roomba client closed.`);
     }
 
     /**
@@ -268,7 +267,7 @@ export class Roomba {
         try {
             const success = await this.executeCommand(setFullCommand);
             if (success) {
-                this.setOpMode(Mode.Off);
+                this.setOpMode(Mode.Full);
             } else {
                 console.error('Failed to stop the Roomba.');
             }
@@ -286,7 +285,6 @@ export class Roomba {
         try {
             const success = await this.executeCommand(motorsCommand);
             if (success) {
-                this.setOpMode(Mode.Off);
             } else {
                 console.error('Failed to stop the Roomba.');
             }
@@ -295,18 +293,17 @@ export class Roomba {
         }
     }
 
-    public async querySensor(packetID: number): Promise<void> {
+    public async querySensor(packetOrGroupID: number): Promise<void> {
         if (this.opMode === Mode.Off) {
             console.log('Cannot set to Full mode while in Off mode.');
             return;
         }
-        const querySensorCommand = new QuerySensorCommand(packetID);
+        const querySensorCommand = new QuerySensorCommand(packetOrGroupID);
         try {
             const success = await this.executeCommand(querySensorCommand);
             if (success) {
-                this.setOpMode(Mode.Off);
             } else {
-                console.error('Failed to stop the Roomba.');
+                console.error('Failed to query sensor.');
             }
         } catch (error) {
             console.error('Exception occurred while stopping the Roomba:', error);
@@ -322,13 +319,17 @@ export class Roomba {
         try {
             const success = await this.executeCommand(querySensorsCommand);
             if (success) {
-                this.setOpMode(Mode.Off);
             } else {
-                console.error('Failed to stop the Roomba.');
+                console.error('Failed to query sensors.');
             }
         } catch (error) {
             console.error('Exception occurred while stopping the Roomba:', error);
         }
+    }
+
+    public pollQuerySensors(): void {
+        if (this.pollQuerySensorsInterval) return;
+        this.pollQuerySensorsInterval = setInterval(this.querySensors, 1000);
     }
 
     public drive(x: number, y: number): void {
@@ -379,21 +380,19 @@ export class Roomba {
     }
 
     private executeCommand(command: Command): Promise<boolean> {
-        return new Promise((resolve, reject) => {
-            const buffer = command.generateCommandBytes();
-            console.log("Sending: " + command.getName() + " bytes: " + [...buffer]);
-
-            this.client.send(buffer, 0, buffer.length, this.port, this.ipAddress, (err) => {
-                if (err) {
-                    console.error(`Error sending command: ${err}`);
-                    reject(err); // Reject the promise if there is an error
-                } else {
-                    console.log(`Command sent to ${this.ipAddress}:${this.port}`);
-                    resolve(true); // Resolve the promise if the command was sent successfully
-                }
-            });
-        });
+        return this.socket.executeCommand(command);
     }
 
+    private onMessage(msg: Message): void {
+        debug('Received message:', msg);
+        if (msg.type === MessageType.SensorData) this.parseSensorData(msg.data); // TODO add sensor group ID to datagram sent from arduino
+    }
+
+    private parseSensorData(data: Buffer): void {
+        const sensorData = new SensorData(data, 6);
+        debug(sensorData);
+        if (sensorData.openInterfaceMode) this.opMode = sensorData.openInterfaceMode;
+        // TODO
+    }
 
 }
