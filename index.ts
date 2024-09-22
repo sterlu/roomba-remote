@@ -1,6 +1,7 @@
 import dgram from 'node:dgram';
 import {ControllerInputEvent, ControllerState, XboxController} from "./xbox";
 import Debug from 'debug';
+import {Roomba} from "./roomba/roomba";
 
 const debug = Debug('roomba-remote:main');
 
@@ -25,11 +26,9 @@ const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
     const pollHz = 10;
     const controller = new XboxController({ controllerIndex: 0, pollHz });
 
-    send(128); // Start
-    await wait(1000);
-    send(131); // Safe mode
-    await wait(1000);
-    // // send(145, 1, 244, 1, 244) // Go
+    const roomba = new Roomba("Boo", REMOTE_IP, REMOTE_PORT, console.log);
+    await roomba.start();
+    await roomba.setSafeMode();
 
     controller.startPolling();
     controller.on('input', (input: ControllerInputEvent) => {
@@ -39,15 +38,16 @@ const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
                 switch (input.button) {
                     case 'A':
                         // Roomba.clean();
-                        send(138, 2);
+                        roomba.motors(true, true, true);
                         break;
                     case 'START':
-                        send(128);
-                        wait(100).then(() => send(131));
+                        roomba.start().then(value => roomba.setSafeMode());
                         break;
                     case 'BACK':
-                        send(173);
+                        roomba.stop();
                         break;
+                    case "Y":
+                        roomba.querySensors();
                     default:
                         break;
                 }

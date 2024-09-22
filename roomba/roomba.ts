@@ -3,16 +3,17 @@ import dgram from "node:dgram";
 import {
     CleanCommand, DriveCommand,
     FullModeCommand,
-    MaxCommand, PowerCommand,
+    MaxCommand, MotorsCommand, PowerCommand, QuerySensorCommand, QuerySensorsCommand,
     ResetCommand,
     SafeModeCommand, SeekDockCommand, SetDayTimeCommand,
     SpotCommand,
     StartCommand,
-    StopCommand
+    StopCommand, StreamSensorData
 } from './commands';
 import { Command } from './command';
 import {Mode} from "./mode";
 import {ModeChangeCallback} from "./mode_change_callback";
+import {UDPReceiver} from "../udp_receiver";
 
 export class Roomba {
     private readonly name: string;
@@ -21,6 +22,7 @@ export class Roomba {
     private client: dgram.Socket;
     private opMode: Mode;
     private readonly modeChangeCallback?: ModeChangeCallback;
+    private udpReceiver: UDPReceiver;
 
     constructor(name: string, ipAddress: string, port: number, modeChangeCallback?: ModeChangeCallback) {
         this.name = name;
@@ -29,7 +31,14 @@ export class Roomba {
         this.client = dgram.createSocket('udp4');
         this.opMode = Mode.Off;
         this.modeChangeCallback = modeChangeCallback;
+        const processData = (data: Buffer) => {
+            console.log('Received data:', data.toString());
+            // Process the data here
+        };
+        this.udpReceiver = new UDPReceiver(port, )
     }
+
+
 
     /**
      * Get the name of the roomba.
@@ -268,6 +277,60 @@ export class Roomba {
         }
     }
 
+    public async motors(mainBrush: boolean, sideBrush: boolean, vacuum: boolean): Promise<void> {
+        if (this.opMode === Mode.Off || this.opMode === Mode.Passive) {
+            console.log('Cannot set to Full mode while in Off mode.');
+            return;
+        }
+        const motorsCommand = new MotorsCommand(mainBrush, sideBrush, vacuum);
+        try {
+            const success = await this.executeCommand(motorsCommand);
+            if (success) {
+                this.setOpMode(Mode.Off);
+            } else {
+                console.error('Failed to stop the Roomba.');
+            }
+        } catch (error) {
+            console.error('Exception occurred while stopping the Roomba:', error);
+        }
+    }
+
+    public async querySensor(packetID: number): Promise<void> {
+        if (this.opMode === Mode.Off) {
+            console.log('Cannot set to Full mode while in Off mode.');
+            return;
+        }
+        const querySensorCommand = new QuerySensorCommand(packetID);
+        try {
+            const success = await this.executeCommand(querySensorCommand);
+            if (success) {
+                this.setOpMode(Mode.Off);
+            } else {
+                console.error('Failed to stop the Roomba.');
+            }
+        } catch (error) {
+            console.error('Exception occurred while stopping the Roomba:', error);
+        }
+    }
+
+    public async querySensors(): Promise<void> {
+        if (this.opMode === Mode.Off) {
+            console.log('Cannot set to Full mode while in Off mode.');
+            return;
+        }
+        const querySensorsCommand = new QuerySensorsCommand();
+        try {
+            const success = await this.executeCommand(querySensorsCommand);
+            if (success) {
+                this.setOpMode(Mode.Off);
+            } else {
+                console.error('Failed to stop the Roomba.');
+            }
+        } catch (error) {
+            console.error('Exception occurred while stopping the Roomba:', error);
+        }
+    }
+
     public drive(x: number, y: number): void {
         if (this.opMode !== Mode.Safe && this.opMode !== Mode.Full) {
             console.log('Drive command is only available in Safe or Full mode.');
@@ -318,7 +381,7 @@ export class Roomba {
     private executeCommand(command: Command): Promise<boolean> {
         return new Promise((resolve, reject) => {
             const buffer = command.generateCommandBytes();
-            console.log("Sending: " + command.getName() + " bytes: " + buffer.toString('hex'));
+            console.log("Sending: " + command.getName() + " bytes: " + [...buffer]);
 
             this.client.send(buffer, 0, buffer.length, this.port, this.ipAddress, (err) => {
                 if (err) {

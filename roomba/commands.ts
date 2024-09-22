@@ -188,3 +188,83 @@ export class DriveCommand extends Command {
         return [...velocityBytes, ...radiusBytes];
     }
 }
+
+export class MotorsCommand extends Command {
+    private static readonly opCode: number = 138;
+    private static readonly cmdName: string = "CONTROL_MOTORS";
+
+    private sideBrush: boolean;
+    private vacuum: boolean;
+    private mainBrush: boolean;
+
+    constructor(sideBrush: boolean, vacuum: boolean, mainBrush: boolean) {
+        super(MotorsCommand.cmdName, MotorsCommand.opCode);
+        this.sideBrush = sideBrush;
+        this.vacuum = vacuum;
+        this.mainBrush = mainBrush;
+    }
+
+    generateDataBytes(): number[] {
+        let motorByte = 0;
+
+        // Bit 0: Side Brush (0 = off, 1 = on)
+        if (this.sideBrush) motorByte |= 1 << 0;
+
+        // Bit 1: Vacuum (0 = off, 1 = on)
+        if (this.vacuum) motorByte |= 1 << 1;
+
+        // Bit 2: Main Brush (0 = off, 1 = on)
+        if (this.mainBrush) motorByte |= 1 << 2;
+
+        return [motorByte];
+    }
+
+
+}
+
+export class QuerySensorCommand extends Command {
+    private static readonly opCode: number = 142;
+    private static readonly cmdName: string = "QUERY_SENSORS";
+
+    private packetID: number;
+
+    constructor(packetID: number) {
+        super(QuerySensorCommand.cmdName, QuerySensorCommand.opCode);
+        this.packetID = packetID;
+    }
+
+    generateDataBytes(): number[] {
+        return [this.packetID]
+    }
+}
+
+export class QuerySensorsCommand extends Command {
+    private static readonly opCode: number = 149;
+    private static readonly cmdName: string = "QUERY_SENSORS";
+
+    private packetIDs: number[] = Array.from({ length: 52}, (_, i) => i + 7);
+
+    constructor() {
+        super(QuerySensorsCommand.cmdName, QuerySensorsCommand.opCode);
+    }
+
+    generateDataBytes(): number[] {
+        return [this.packetIDs.length, ...this.packetIDs];
+    }
+}
+
+
+export class StreamSensorData extends Command {
+    private static readonly opCode: number = 148;
+    private static readonly cmdName: string = "STREAM_SENSOR_DATA";
+
+    private packetIDs: number[] = Array.from({ length: 52}, (_, i) => i + 7);
+
+    constructor() {
+        super(StreamSensorData.cmdName, StreamSensorData.opCode);
+    }
+
+    generateDataBytes(): number[] {
+        return [this.packetIDs.length, ...this.packetIDs];
+    }
+}
