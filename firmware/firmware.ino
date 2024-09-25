@@ -69,7 +69,7 @@ void loop() {
         clearReadBuffer();
       }
 
-      if (packetBuffer[0] == 142 || packetBuffer[0] == 149) {
+      if (packetBuffer[0] == 142) {
         // if sensor request, read data
         delay(25);
 
@@ -85,6 +85,7 @@ void loop() {
           Udp.endPacket();
         } else {
           Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
+          Udp.write(packetBuffer[1]); // set sensor group ID as first byte of reply
           Udp.write(readBuffer, i);
           Udp.endPacket();
         }

@@ -389,7 +389,9 @@ export class Roomba {
     }
 
     private parseSensorData(data: Buffer): void {
-        const sensorData = new SensorData(data, 6);
+        const sensorGroup = data[0];
+        const sensorDataBytes = data.subarray(1);
+        const sensorData = new SensorData(sensorDataBytes, sensorGroup);
         debug(sensorData);
         if (sensorData.openInterfaceMode) this.opMode = sensorData.openInterfaceMode;
         // TODO

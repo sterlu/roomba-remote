@@ -81,8 +81,9 @@ export class SensorData {
     // private int
 
 
-    constructor(sensorDataBuffer: Buffer, sensorGroup: (keyof typeof SENSOR_GROUPS)) {
-        const sensorGroupData = SENSOR_GROUPS[sensorGroup];
+    constructor(sensorDataBuffer: Buffer, sensorGroup: number) {
+        if (!(sensorGroup in sensorDataBuffer)) throw new Error(`Invalid sensor group ${sensorGroup}`);
+        const sensorGroupData = SENSOR_GROUPS[sensorGroup as (keyof typeof SENSOR_GROUPS)];
         let bytesRead = 0;
         for (let packetId = sensorGroupData.start; packetId <= sensorGroupData.end; packetId++) {
             const packetInfo = PACKET_ID_TO_INFO[packetId];
