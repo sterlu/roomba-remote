@@ -34,16 +34,17 @@ void setup() {
   // Print the IP address
   // Serial.println(WiFi.localIP());
 
-  while ( Serial.available() > 0 ) {
-    // Clear read buffer
-    Serial.read();
-  }
+  clearReadBuffer();
 
   Udp.begin(localPort);
 
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, LED_ON);
   // LED on until first message received
+}
+
+void clearReadBuffer() {
+  while (Serial.available() > 0) Serial.read();
 }
 
 void loop() {
@@ -60,6 +61,12 @@ void loop() {
 
       for (int i = 0; i < len; i++) {
         Serial.write((char)packetBuffer[i]);
+      }
+
+      if (packetBuffer[0] == 128) {
+        // Roomba prints out firmware version when booting up
+        // RX buffer should be cleared to prevent interference when reading sensor data
+        clearReadBuffer();
       }
 
       if (packetBuffer[0] == 142 || packetBuffer[0] == 149) {
