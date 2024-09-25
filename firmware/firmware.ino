@@ -1,8 +1,6 @@
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
-
-const char* ssid = "TODO";
-const char* password = "TODO";
+#include "wifi-credentials.h"
 
 unsigned int localPort = 2390; // port to listen on
 
@@ -10,26 +8,25 @@ unsigned int localPort = 2390; // port to listen on
 #define LED_OFF 1
 
 WiFiUDP Udp;
-char packetBuffer[255]; //buffer to hold incoming packet
+char packetBuffer[255]; // Buffer to hold incoming packet
 char replyBuffer[] = "ack0";
 char noReplyBuffer[] = "No reply from roomba";
-char readBuffer[255]; //buffer to hold read sensor data
+char readBuffer[255]; // Buffer to hold read sensor data
 
 void setup() {
   Serial.begin(115200);
-  delay(10);
+
+  pinMode(LED_BUILTIN, OUTPUT);
 
   // Connect to WiFi network
-  // Serial.print("Connecting to ");
-  // Serial.println(ssid);
-
-  WiFi.begin(ssid, password);
-
+  WiFi.begin(WIFI_SSID, WIFI_PWD);
   while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    // Serial.print(".");
+    digitalWrite(LED_BUILTIN, LED_ON);
+    delay(250);
+    digitalWrite(LED_BUILTIN, LED_OFF);
+    delay(250);
   }
-  // Serial.println("WiFi connected");
+  // WiFi connected
 
   // Print the IP address
   // Serial.println(WiFi.localIP());
@@ -38,7 +35,6 @@ void setup() {
 
   Udp.begin(localPort);
 
-  pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, LED_ON);
   // LED on until first message received
 }
