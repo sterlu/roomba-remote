@@ -27,4 +27,13 @@ export abstract class Command {
         return this.name;
     }
 
+    static toTwoByteArray(value: number): number[] {
+        if (value >= 0) {
+            return [value >> 8, value & 0xFF];
+        } else {
+            // Convert negative values to two's complement
+            const unsignedValue = (value + 0x10000) & 0xFFFF;
+            return [unsignedValue >> 8, unsignedValue & 0xFF];
+        }
+    }
 }

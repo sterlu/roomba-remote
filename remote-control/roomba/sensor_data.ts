@@ -93,9 +93,11 @@ export class SensorData {
                 this.wheelOvercurrents = new WheelOvercurrents(packet[0]);
             }
             if (packetInfo.description === 'Open Interface Mode') {
+                // Roomba seems to return 2 for passive, 3 for safe, and 4 for full mode
+                // even though documentation says 1, 2, 3
                 this.openInterfaceMode = ([
-                    Mode.Off, Mode.Passive, Mode.Safe, Mode.Full
-                ] as const)[packet[0] as 0 | 1 | 2 | 3];
+                    Mode.Unknown, Mode.Off, Mode.Passive, Mode.Safe, Mode.Full
+                ] as const)[packet[0] as 0 | 1 | 2 | 3 | 4];
                 debug('Open Interface Mode', packet[0], this.openInterfaceMode);
             }
             bytesRead += packetInfo.byteLength;

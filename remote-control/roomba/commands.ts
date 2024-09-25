@@ -170,22 +170,33 @@ export class DriveCommand extends Command {
         this.radius = radius;
     }
 
-    private toTwoByteArray(value: number): number[] {
-        if (value >= 0) {
-            return [value >> 8, value & 0xFF];
-        } else {
-            // Convert negative values to two's complement
-            const unsignedValue = (value + 0x10000) & 0xFFFF;
-            return [unsignedValue >> 8, unsignedValue & 0xFF];
-        }
+    public generateDataBytes(): number[] {
+        // Convert velocity and radius to two-byte arrays
+        const velocityBytes = Command.toTwoByteArray(this.velocity);
+        const radiusBytes = Command.toTwoByteArray(this.radius);
+
+        return [...velocityBytes, ...radiusBytes];
+    }
+}
+
+export class DriveWheelsCommand extends Command {
+    private static readonly opCode: number = 145;
+    private static readonly cmdName: string = "DRIVE_WHEELS";
+    private speedL: number;
+    private speedR: number;
+
+    constructor(speedL: number, speedR: number) {
+        super(DriveWheelsCommand.cmdName, DriveWheelsCommand.opCode);
+        this.speedL = speedL;
+        this.speedR = speedR;
     }
 
     public generateDataBytes(): number[] {
-        // Convert velocity and radius to two-byte arrays
-        const velocityBytes = this.toTwoByteArray(this.velocity);
-        const radiusBytes = this.toTwoByteArray(this.radius);
+        // Convert speedL and speedR to two-byte arrays
+        const speedLBytes = Command.toTwoByteArray(this.speedL);
+        const speedRBytes = Command.toTwoByteArray(this.speedR);
 
-        return [...velocityBytes, ...radiusBytes];
+        return [...speedRBytes, ...speedLBytes];
     }
 }
 

@@ -59,7 +59,7 @@ export class UdpSocket {
         }
     }
 
-    public executeCommand(command: Command): Promise<boolean> {
+    public executeCommand(command: Command): Promise<void> {
         return new Promise((resolve, reject) => {
             const buffer = command.generateCommandBytes();
             debug("Sending: " + command.getName() + " bytes: " + [...buffer]);
@@ -69,7 +69,7 @@ export class UdpSocket {
                     console.error(`Error sending command: ${err}`);
                     reject(err); // Reject the promise if there is an error
                 } else {
-                    resolve(true); // Resolve the promise if the command was sent successfully
+                    resolve(); // Resolve the promise if the command was sent successfully
                     // DEV: Potentially should resolve only if device acknowledges with "ack" message
                 }
             });

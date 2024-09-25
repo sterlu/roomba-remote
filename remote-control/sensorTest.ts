@@ -1,12 +1,12 @@
 import Debug from 'debug';
 import {Roomba} from "./roomba/roomba";
+import {wait} from "./utils";
 
 const debug = Debug('roomba-remote:main');
 
 const REMOTE_IP = '192.168.50.192';
 const REMOTE_PORT = 2390;
 
-const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 (async () => {
     const roomba = new Roomba("Boo", REMOTE_IP, REMOTE_PORT, console.log);
@@ -14,8 +14,9 @@ const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
     await wait(200);
     // send(129, 11);
     // await wait(200);
-    // await roomba.setSafeMode();
-    // await wait(200);
+
+    await roomba.setSafeMode();
+    await wait(200);
     debug('Getting all sensor data');
     await roomba.querySensor(6);
     await wait(1000);

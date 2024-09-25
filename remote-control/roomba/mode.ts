@@ -1,4 +1,7 @@
 export enum Mode {
+    // Initial unknown state
+    Unknown = 'Unknown',
+
     // After a battery change or when power is first turned on, the OI is in “off” mode.
     // When it is off, the OI listens at the default baud rate for an OI Start command.
     Off = 'Off',

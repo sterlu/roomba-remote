@@ -1,24 +1,11 @@
-import dgram from 'node:dgram';
 import {ControllerInputEvent, ControllerState, XboxController} from "./xbox";
 import Debug from 'debug';
 import {Roomba} from "./roomba/roomba";
 
 const debug = Debug('roomba-remote:main');
 
-
 const REMOTE_IP = '192.168.50.192';
 const REMOTE_PORT = 2390;
-
-const client = dgram.createSocket('udp4');
-
-const send = (...arr: number[]) => client.send(Buffer.from(arr), REMOTE_PORT, REMOTE_IP);
-
-send(128); // Start
-// send(131); // Safe mode
-// send(145, 1, 244, 1, 244) // Go
-// send(173); // Stop
-
-const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 (async () => {
     if (await XboxController.availableControllers() === 0) throw new Error('No controllers connected');
@@ -37,17 +24,24 @@ const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
             if (input.state === 'pressed') {
                 switch (input.button) {
                     case 'A':
-                        // Roomba.clean();
                         roomba.motors(true, true, true);
                         break;
-                    case 'START':
-                        roomba.start().then(value => roomba.setSafeMode());
+                    case 'B':
+                        roomba.motors(false, false, false);
                         break;
+                    case 'START':
+                        roomba.start()
+                            .then(() => roomba.setSafeMode());
+                        break;
+                    // case 'X':
+                    //     roomba.setFullMode();
+                    //     break;
                     case 'BACK':
                         roomba.stop();
                         break;
                     case "Y":
-                        roomba.querySensors();
+                        roomba.querySensor(6);
+                        break;
                     default:
                         break;
                 }
@@ -63,17 +57,7 @@ const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
         const speedL = Math.max(-500, Math.min(500, Math.round(speed + diff)));
         const speedR = Math.max(-500, Math.min(500, Math.round(speed - diff)));
         // const radius = (1 / thumbLeftX) * 2000;
-        debug({ speed, diff, speedL, speedR });
-        // const command = [137, speed >> 8, speed & 0xff, radius >> 8, radius & 0xff];
-        const command = [145, speedR >> 8, speedR & 0xff, speedL >> 8, speedL & 0xff];
-        debug(command);
-        send(...command);
-
-
-        // const speedL = Math.max(-500, Math.min(500, Math.round(500 * thumbLeftY)));
-        // const speedR = Math.max(-500, Math.min(500, Math.round(500 * thumbRightY)));
-        // const command = [145, speedR >> 8, speedR & 0xff, speedL >> 8, speedL & 0xff];
-        // debug(command);
-        // send(...command);
+        // debug({ speed, diff, speedL, speedR });
+        roomba.driveWheels(speedL, speedR);
     });
 })();
