@@ -1,6 +1,8 @@
-import {ControllerInputEvent, ControllerState, XboxController} from "./xbox";
+import {XboxController} from "../lib/controller/xinput";
 import Debug from 'debug';
-import {Roomba} from "./roomba/roomba";
+import {Roomba} from "../lib/roomba/roomba";
+import {RoombaUdpSocket} from "../lib/roomba/socket/udp";
+import {ControllerInputEvent, ControllerState} from "../lib/controller/controllerButton";
 
 const debug = Debug('roomba-remote:main');
 
@@ -13,7 +15,8 @@ const REMOTE_PORT = 2390;
     const pollHz = 10;
     const controller = new XboxController({ controllerIndex: 0, pollHz });
 
-    const roomba = new Roomba("Boo", REMOTE_IP, REMOTE_PORT, console.log);
+    const roombaSocket = new RoombaUdpSocket(REMOTE_IP, REMOTE_PORT);
+    const roomba = new Roomba("Boo", roombaSocket);
     await roomba.start();
     await roomba.setSafeMode();
 

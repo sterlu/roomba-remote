@@ -8,13 +8,11 @@ export abstract class Command {
         this.opCode = opCode;
     }
 
-    generateCommandBytes(): Buffer {
+    generateCommandBytes(): Uint8Array {
         const opCode = this.getOpCode();
         const dataBytes = this.generateDataBytes();
-        // Combine opCode and dataBytes into a single array
         const commandArray = [opCode, ...dataBytes];
-        // Create and return a Buffer from the array
-        return Buffer.from(commandArray);
+        return new Uint8Array(commandArray);
     }
     // Abstract method to generate data bytes for the command
     abstract generateDataBytes(): number[];

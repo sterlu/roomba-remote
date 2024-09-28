@@ -81,14 +81,14 @@ export class SensorData {
     // private int
 
 
-    constructor(sensorDataBuffer: Buffer, sensorGroup: number) {
-        if (!(sensorGroup in sensorDataBuffer)) throw new Error(`Invalid sensor group ${sensorGroup}`);
+    constructor(sensorData: Uint8Array, sensorGroup: number) {
+        if (!(sensorGroup in SENSOR_GROUPS)) throw new Error(`Invalid sensor group ${sensorGroup}`);
         const sensorGroupData = SENSOR_GROUPS[sensorGroup as (keyof typeof SENSOR_GROUPS)];
         let bytesRead = 0;
         for (let packetId = sensorGroupData.start; packetId <= sensorGroupData.end; packetId++) {
             const packetInfo = PACKET_ID_TO_INFO[packetId];
-            const packet = sensorDataBuffer.subarray(bytesRead, bytesRead + packetInfo.byteLength)
-            debug(packetId, packet, packetInfo);
+            const packet = sensorData.subarray(bytesRead, bytesRead + packetInfo.byteLength)
+            // debug(packetId, packet, packetInfo);
             if (packetInfo.description === 'Overcurrents') {
                 this.wheelOvercurrents = new WheelOvercurrents(packet[0]);
             }

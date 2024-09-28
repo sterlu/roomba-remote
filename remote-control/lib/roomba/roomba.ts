@@ -20,8 +20,7 @@ import {
 } from './commands';
 import {Command} from './command';
 import {Mode} from "./mode";
-import {ModeChangeCallback} from "./mode_change_callback";
-import {Message, MessageType, UdpSocket} from "./udp_socket";
+import {Message, MessageType, RoombaSocket} from "./socket/common";
 import {SensorData} from "./sensor_data";
 import {wait} from "../utils";
 
@@ -29,16 +28,19 @@ const debug = Debug('roomba-remote:roomba');
 
 export class Roomba {
     private readonly name: string;
-    private socket: UdpSocket;
+    private socket: RoombaSocket;
     private opMode: Mode;
-    private readonly modeChangeCallback?: ModeChangeCallback;
+    private readonly modeChangeCallback?: (mode: Mode) => void;
+    private readonly sensorDataCallback?: (sensorData: SensorData) => void;
     private pollQuerySensorsInterval?: NodeJS.Timeout;
 
-    constructor(name: string, ipAddress: string, port: number, modeChangeCallback?: ModeChangeCallback) {
+    constructor(name: string, socket: RoombaSocket, sensorDataCallback: (sensorData: SensorData) => void, modeChangeCallback?: (mode: Mode) => void) {
         this.name = name;
-        this.socket = new UdpSocket(ipAddress, port, this.onMessage.bind(this));
+        this.socket = socket;
+        this.socket.onMessage(this.onMessage.bind(this));
         this.opMode = Mode.Unknown;
         this.modeChangeCallback = modeChangeCallback;
+        this.sensorDataCallback = sensorDataCallback;
     }
 
     /**
@@ -47,6 +49,10 @@ export class Roomba {
     public getName(): string {
         debug(`I am ${this.name}, a roomba.`);
         return this.name;
+    }
+
+    public getOpMode(): Mode {
+        return this.opMode;
     }
 
     // Clean up the UDP client
@@ -262,7 +268,9 @@ export class Roomba {
 
     private async executeCommand(command: Command): Promise<void> {
         try {
-            await this.socket.executeCommand(command);
+            const message = command.generateCommandBytes();
+            debug("Sending:", command.getName(), message);
+            await this.socket.sendMessage(message);
         } catch (error: any) {
             const e = new Error(`Failed to execute ${command.getName()} command: ${error?.message}`);
             (e as any).orriginalError = error;
@@ -276,13 +284,14 @@ export class Roomba {
         if (msg.type === MessageType.Error) this.setOpMode(Mode.Unknown);
     }
 
-    private parseSensorDataMessage(data: Buffer): void {
+    private parseSensorDataMessage(data: Uint8Array): void {
         const sensorGroup = data[0];
         const sensorDataBytes = data.subarray(1);
         const sensorData = new SensorData(sensorDataBytes, sensorGroup);
         debug(sensorData);
         if (sensorData.openInterfaceMode) this.opMode = sensorData.openInterfaceMode;
         // TODO
+        this.sensorDataCallback?.(sensorData);
     }
 
 }

@@ -1,32 +1,20 @@
 import * as dgram from 'dgram';
 import Debug from 'debug';
-import {Command} from "./command";
+import {Message, MessageType, RoombaSocket} from "./common";
 
 const debug = Debug('roomba-remote:udp');
 
-export enum MessageType {
-    Acknowledge = 'ack',
-    Error = 'error',
-    SensorData = 'sensordata',
-}
-
-export type Message = {
-    type: MessageType,
-    data: Buffer,
-    message?: string,
-}
-
-export class UdpSocket {
+export class RoombaUdpSocket implements RoombaSocket {
     private socket: dgram.Socket;
     private readonly ipAddress: string;
     private readonly port: number;
-    private readonly messageCallback: (msg: Message) => any;
+    private messageCallback: (msg: Message) => any;
 
-    constructor(ipAddress: string, port: number, messageCallback: (msg: Message) => any) {
+    constructor(ipAddress: string, port: number) {
         this.ipAddress = ipAddress;
         this.port = port;
         this.socket = dgram.createSocket('udp4');
-        this.messageCallback = messageCallback;
+        this.messageCallback = () => null;
 
         // Set up event listeners
         this.socket.on('message', this.onReceive.bind(this));
@@ -35,6 +23,10 @@ export class UdpSocket {
             debug(`UDP receiver error:\n${err.stack}`);
             this.socket.close();
         });
+    }
+
+    public onMessage(messageCallback: (msg: Message) => any): void {
+        this.messageCallback = messageCallback;
     }
 
     public close(): void {
@@ -51,7 +43,7 @@ export class UdpSocket {
         } else if (data.toString().substring(0, 20) === 'No reply from roomba') {
             debug('<- No reply from roomba');
             this.messageCallback({type: MessageType.Error, message: data.toString(), data});
-        } else if (true) { // TODO Add packet prefix to identify sensor data
+        } else if (true) {
             debug(`<- Received ${data.length} bytes of sensor data:`, data);
             this.messageCallback({type: MessageType.SensorData, data});
         // } else {
@@ -59,12 +51,10 @@ export class UdpSocket {
         }
     }
 
-    public executeCommand(command: Command): Promise<void> {
+    public sendMessage(message: Uint8Array): Promise<void> {
         return new Promise((resolve, reject) => {
-            const buffer = command.generateCommandBytes();
-            debug("Sending: " + command.getName() + " bytes: " + [...buffer]);
-
-            this.socket.send(buffer, 0, buffer.length, this.port, this.ipAddress, (err) => {
+            debug("Sending bytes:", message);
+            this.socket.send(message, 0, message.length, this.port, this.ipAddress, (err) => {
                 if (err) {
                     console.error(`Error sending command: ${err}`);
                     reject(err); // Reject the promise if there is an error

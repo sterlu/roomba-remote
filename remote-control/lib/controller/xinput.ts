@@ -1,58 +1,21 @@
 import {getState, listConnected} from "xinput-ffi";
 import Debug from 'debug';
+import {
+    ControllerButton,
+    ControllerInputListener,
+    ControllerState,
+    ControllerStateListener,
+    RawState,
+    Controller,
+} from "./controllerButton";
 
 const debug = Debug('roomba-remote:xbox');
 
-export type ControllerButton =
-    "DPAD_UP" |
-    "DPAD_DOWN" |
-    "DPAD_LEFT" |
-    "DPAD_RIGHT" |
-    "START" |
-    "BACK" |
-    "LEFT_THUMB" |
-    "RIGHT_THUMB" |
-    "LEFT_SHOULDER" |
-    "RIGHT_SHOULDER" |
-    "GUIDE" |
-    "A" |
-    "B" |
-    "X" |
-    "Y";
-
-type RawState = {
-    dwPacketNumber: number;
-    gamepad: {
-        wButtons: number | string[];
-        bLeftTrigger: number;
-        bRightTrigger: number;
-        sThumbLX: number;
-        sThumbLY: number;
-        sThumbRX: number;
-        sThumbRY: number;
-    };
-}
-
-export type ControllerState = {
-    buttons: ControllerButton[];
-    triggerLeft: number;
-    triggerRight: number;
-    thumbLeftX: number;
-    thumbLeftY: number;
-    thumbRightX: number;
-    thumbRightY: number;
-}
-
-export type ControllerInputEvent = {
-    type: 'button';
-    button: ControllerButton;
-    state: 'pressed' | 'released';
-}
-
-export type ControllerStateListener = (state: ControllerState) => any;
-export type ControllerInputListener = (event: ControllerInputEvent) => any;
-
-export class XboxController {
+/**
+ * This class wraps the Windows-native Xinput API.
+ * It only works via Node.js on Windows.
+ */
+export class XboxController implements Controller{
     static async availableControllers(): Promise<number> {
         debug('Listing connected controllers');
         const connected = await listConnected();
@@ -71,7 +34,7 @@ export class XboxController {
     thumbDeadzone: number;
     lastState?: ControllerState;
 
-    constructor({ controllerIndex = 0, pollHz = 30, thumbDeadzone = 0.05 }) {
+    constructor({ controllerIndex = 0, pollHz = 30, thumbDeadzone = 0.1 }) {
         this.dwUserIndex = controllerIndex;
         this.pollHz = pollHz;
         this.thumbDeadzone = thumbDeadzone;

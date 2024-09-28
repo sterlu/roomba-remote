@@ -1,6 +1,7 @@
 import Debug from 'debug';
-import {Roomba} from "./roomba/roomba";
-import {wait} from "./utils";
+import {Roomba} from "../lib/roomba/roomba";
+import {wait} from "../lib/utils";
+import {RoombaUdpSocket} from "../lib/roomba/socket/udp";
 
 const debug = Debug('roomba-remote:main');
 
@@ -9,7 +10,8 @@ const REMOTE_PORT = 2390;
 
 
 (async () => {
-    const roomba = new Roomba("Boo", REMOTE_IP, REMOTE_PORT, console.log);
+    const roombaSocket = new RoombaUdpSocket(REMOTE_IP, REMOTE_PORT);
+    const roomba = new Roomba("Boo", roombaSocket);
     await roomba.start();
     await wait(200);
     // send(129, 11);
