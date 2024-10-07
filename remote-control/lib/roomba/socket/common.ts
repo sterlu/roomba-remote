@@ -4,6 +4,7 @@ export enum MessageType {
     Acknowledge = 'ack',
     Error = 'error',
     SensorData = 'sensordata',
+    Image = 'image',
 }
 
 export type Message = {

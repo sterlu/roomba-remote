@@ -100,6 +100,22 @@ export class SensorData {
                 ] as const)[packet[0] as 0 | 1 | 2 | 3 | 4];
                 debug('Open Interface Mode', packet[0], this.openInterfaceMode);
             }
+            if (packetInfo.description === 'Voltage') {
+                debug('Voltage', ((packet[0] << 8) + packet[1]) / 1000, 'V');
+            }
+            // if (packetInfo.description === 'Current') {
+            //     // Need to parse signed int differently
+            //     debug('Current', (packet[0] << 8) + packet[1], packet);
+            // }
+            if (packetInfo.description === 'Battery Charge') {
+                debug('Battery Charge', (packet[0] << 8) + packet[1], 'mAh');
+            }
+            if (packetInfo.description === 'Battery Capacity') {
+                debug('Battery Capacity', (packet[0] << 8) + packet[1], 'mAh');
+            }
+            if (packetInfo.description === 'Temperature') {
+                debug('Temperature', packet[0], 'C');
+            }
             bytesRead += packetInfo.byteLength;
         }
         debug('Bytes read', bytesRead);

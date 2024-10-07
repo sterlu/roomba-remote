@@ -12,9 +12,12 @@ unsigned int localPort = 2390; // port to listen on
 #define LED_ON 0
 #define LED_OFF 1
 
+bool serialDebug = false;
+
 char packetBuffer[255]; // Buffer to hold incoming packet
 char ack[] = "ack0";
 char noResponse[] = "No reply from roomba";
+char frameBufferError[] = "Error getting frame buffer";
 char readBuffer[255]; // Buffer to hold read sensor data
 char replyBuffer[255];
 
@@ -23,7 +26,37 @@ WiFiUDP Udp;
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
+camera_config_t cameraConfig = {
+  .pin_pwdn = PWDN_GPIO_NUM,
+  .pin_reset = RESET_GPIO_NUM,
+  .pin_xclk = XCLK_GPIO_NUM,
+  .pin_sccb_sda = SIOD_GPIO_NUM,
+  .pin_sccb_scl = SIOC_GPIO_NUM,
+  .pin_d7 = Y9_GPIO_NUM,
+  .pin_d6 = Y8_GPIO_NUM,
+  .pin_d5 = Y7_GPIO_NUM,
+  .pin_d4 = Y6_GPIO_NUM,
+  .pin_d3 = Y5_GPIO_NUM,
+  .pin_d2 = Y4_GPIO_NUM,
+  .pin_d1 = Y3_GPIO_NUM,
+  .pin_d0 = Y2_GPIO_NUM,
+  .pin_vsync = VSYNC_GPIO_NUM,
+  .pin_href = HREF_GPIO_NUM,
+  .pin_pclk = PCLK_GPIO_NUM,
+
+  .xclk_freq_hz = 20000000,
+  .ledc_timer = LEDC_TIMER_0,
+  .ledc_channel = LEDC_CHANNEL_0,
+  .pixel_format = PIXFORMAT_JPEG,
+  .frame_size = FRAMESIZE_VGA,
+  .jpeg_quality = 12, // 0-63, for OV series camera sensors, lower number means higher quality
+  .fb_count = 2,
+  .fb_location = CAMERA_FB_IN_PSRAM,
+  .grab_mode = CAMERA_GRAB_WHEN_EMPTY, // CAMERA_GRAB_WHEN_EMPTY or CAMERA_GRAB_LATEST
+};
+
 void clearReadBuffer() {
+  if (serialDebug) return;
   while (Serial.available() > 0) Serial.read();
 }
 
@@ -33,7 +66,80 @@ void writeToRoomba(char *buffer, int len) {
       }
 }
 
+bool setupCamera() {
+  if (!psramFound()) {
+    if (serialDebug) Serial.println("Warning: No PSRam found so defaulting to image size 'CIF'");
+    cameraConfig.frame_size = FRAMESIZE_CIF;
+  }
+
+  // //power up the camera if PWDN pin is defined
+  // if(CAM_PIN_PWDN != -1){
+  //     pinMode(CAM_PIN_PWDN, OUTPUT);
+  //     digitalWrite(CAM_PIN_PWDN, LOW);
+  // }
+
+  //initialize the camera
+  esp_err_t err = esp_camera_init(&cameraConfig);
+  if (err != ESP_OK) {
+      if (serialDebug) Serial.println("Camera Init Failed");
+      return err;
+  }
+
+  return ESP_OK;
+}
+
+bool captureAndSendToWs() {
+    if (serialDebug) Serial.println("Starting capture");
+
+    camera_fb_t* fb = esp_camera_fb_get();
+    if (!fb) {
+      ws.binaryAll(frameBufferError, strlen(frameBufferError));
+      return false;
+    }
+    if (serialDebug) Serial.println("Got pointer");
+
+    ws.binaryAll(fb->buf, fb->len);
+
+    if (serialDebug) Serial.println("Sent");
+    // process_image(fb->width, fb->height, fb->format, fb->buf, fb->len);
+
+    esp_camera_fb_return(fb);
+    return true;
+}
+
+bool processCustomCommand(char *messageBuffer, int len) {
+  if (messageBuffer[0] == 200) {
+    captureAndSendToWs();
+    return true;
+  }
+  if (messageBuffer[0] == 201) {
+    int quality = messageBuffer[1];
+    if (quality <= 63) {
+      cameraConfig.jpeg_quality = messageBuffer[1];
+      setupCamera();
+    }
+    return true;
+  }
+  if (messageBuffer[0] == 202) {
+    int frameSize = messageBuffer[1];
+    if (frameSize <= 13) {
+      cameraConfig.frame_size = (framesize_t)frameSize;
+      setupCamera();
+    }
+    return true;
+  }
+  if (messageBuffer[0] == 203) {
+    int power = messageBuffer[1];
+    analogWrite(LED_FLASH, power);
+    return true;
+  }
+  return false;
+}
+
 int onMessageReceived(char *messageBuffer, int len) {
+  bool customCommand = processCustomCommand(messageBuffer, len);
+  if (customCommand) return 0;
+
   writeToRoomba(messageBuffer, len);
 
   if (messageBuffer[0] == 128) {
@@ -62,7 +168,7 @@ int onMessageReceived(char *messageBuffer, int len) {
   return 0;
 }
 
-void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
+void wsOnEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
   switch (type) {
     case WS_EVT_CONNECT:
       // Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
@@ -100,15 +206,19 @@ void setup() {
   // WiFi connected
 
   // Print the IP address
-  // Serial.println(WiFi.localIP());
+  if (serialDebug) Serial.println(WiFi.localIP());
 
   clearReadBuffer();
 
   Udp.begin(localPort);
 
-  ws.onEvent(onEvent);
+  ws.onEvent(wsOnEvent);
   server.addHandler(&ws);
   server.begin();
+
+  setupCamera();
+
+  // pinMode(LED_FLASH, OUTPUT);
 
   digitalWrite(LED_BUILTIN, LED_ON);
   // LED on until first message received

@@ -279,3 +279,17 @@ export class StreamSensorData extends Command {
         return [this.packetIDs.length, ...this.packetIDs];
     }
 }
+
+export class CustomCommand extends Command {
+
+    private rest: number[];
+
+    constructor(data: number[]) {
+        super('CUSTOM', data[0]);
+        this.rest = data.slice(1);
+    }
+
+    generateDataBytes(): number[] {
+        return [...this.rest];
+    }
+}

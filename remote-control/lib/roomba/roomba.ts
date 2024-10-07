@@ -2,6 +2,7 @@
 import Debug from 'debug';
 import {
     CleanCommand,
+    CustomCommand,
     DriveCommand,
     DriveWheelsCommand,
     FullModeCommand,
@@ -32,15 +33,23 @@ export class Roomba {
     private opMode: Mode;
     private readonly modeChangeCallback?: (mode: Mode) => void;
     private readonly sensorDataCallback?: (sensorData: SensorData) => void;
+    private readonly imageCallback?: (imageData: Uint8Array) => void;
     private pollQuerySensorsInterval?: NodeJS.Timeout;
 
-    constructor(name: string, socket: RoombaSocket, sensorDataCallback: (sensorData: SensorData) => void, modeChangeCallback?: (mode: Mode) => void) {
+    constructor(
+      name: string,
+      socket: RoombaSocket,
+      sensorDataCallback: (sensorData: SensorData) => void,
+      modeChangeCallback?: (mode: Mode) => void,
+      imageCallback?: (imageData: Uint8Array) => void,
+    ) {
         this.name = name;
         this.socket = socket;
         this.socket.onMessage(this.onMessage.bind(this));
         this.opMode = Mode.Unknown;
         this.modeChangeCallback = modeChangeCallback;
         this.sensorDataCallback = sensorDataCallback;
+        this.imageCallback = imageCallback;
     }
 
     /**
@@ -259,6 +268,11 @@ export class Roomba {
         return this.executeCommand(driveCommand)
     }
 
+    public async sendCustomCommand(data: number[]) {
+        const command = new CustomCommand(data);
+        return this.executeCommand(command)
+    }
+
     private setOpMode(mode: Mode): void {
         this.opMode = mode;
         if (this.modeChangeCallback) {
@@ -282,6 +296,7 @@ export class Roomba {
         debug('Received message:', msg);
         if (msg.type === MessageType.SensorData) this.parseSensorDataMessage(msg.data);
         if (msg.type === MessageType.Error) this.setOpMode(Mode.Unknown);
+        if (msg.type === MessageType.Image) this.imageCallback?.(msg.data);
     }
 
     private parseSensorDataMessage(data: Uint8Array): void {
